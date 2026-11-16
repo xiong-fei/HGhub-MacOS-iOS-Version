@@ -13,6 +13,15 @@ pub const FIXED: [(&str, &str); 2] = [
     ("固定线路 2", "https://huangguoai.ai"),
 ];
 
+/// 发布页不可达时使用的国内直连镜像（2026-11-16 实测可用）。
+const FALLBACK_MIRRORS: [(&str, &str); 5] = [
+    ("fdu.ixgukkejj.cc", "https://fdu.ixgukkejj.cc"),
+    ("thu.ixgukkejj.cc", "https://thu.ixgukkejj.cc"),
+    ("fdu.bmikbxhi.cc", "https://fdu.bmikbxhi.cc"),
+    ("zju.bmikbxhi.cc", "https://zju.bmikbxhi.cc"),
+    ("sjtu.ixgukkejj.cc", "https://sjtu.ixgukkejj.cc"),
+];
+
 const PUBLISH_PAGE: &str = "https://huangguoai.pages.dev/";
 /// 镜像列表上限（子域 × 域名是笛卡尔积，界面只展示这么多）
 const MIRROR_MAX: usize = 60;
@@ -28,6 +37,21 @@ pub fn fixed() -> Value {
 
 /// 拉地址发布页 → 解析 publish.js → 拼出镜像地址。只在用户点开「线路」时调用。
 pub async fn mirrors() -> Result<Value, String> {
+    match mirrors_from_publish().await {
+        Ok(v) => Ok(v),
+        Err(_) => Ok(json!({
+            "source": PUBLISH_PAGE,
+            "script": "",
+            "items": FALLBACK_MIRRORS
+                .iter()
+                .map(|(host, url)| json!({ "url": url, "host": host }))
+                .collect::<Vec<_>>(),
+            "fallback": true,
+        })),
+    }
+}
+
+async fn mirrors_from_publish() -> Result<Value, String> {
     let html = get_text(PUBLISH_PAGE).await?;
     let js_rel = script_src(&html).unwrap_or_else(|| "publish.js".to_string());
     let js_url = absolute(PUBLISH_PAGE, &js_rel);
