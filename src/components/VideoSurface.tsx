@@ -275,7 +275,8 @@ const VideoSurface = forwardRef<VideoHandle, Props>(function VideoSurface(
         }
       });
     } else {
-      video.src = url;
+      // iOS WKWebView 的原生 <video> 不识别自定义 hg:// 协议；原生 HLS 直接走上游 HTTPS。
+      video.src = platform === "ios" && !proxied ? src : url;
       if (autoPlay) activity.play("native_autoplay", true);
     }
 
